@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מעקב חום גוף בסיסי (BBT)</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN for drawing graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Import Inter font for a clean look */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #fce7f3; /* Light pink background */
+            color: #4a0e2a; /* Dark pink text */
+            direction: rtl; /* Right-to-left for Hebrew */
+            text-align: right; /* Align text to the right for Hebrew */
+        }
+        .container {
+            max-width: 100vw; /* Fluid width for mobile responsiveness */
+            padding: 1rem; /* Padding for all sides */
+            margin: 0 auto; /* Center the container */
+            box-sizing: border-box; /* Include padding in width calculation */
+        }
+        .section {
+            display: none; /* Sections are hidden by default */
+        }
+        .section.active {
+            display: block; /* Active section is displayed */
+        }
+        /* Style for date input calendar picker icon */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1); /* Invert color for better visibility on light background */
+        }
+        /* Custom message box styling */
+        #message-box {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            background-color: #fbcfe8; /* Light pink */
+            color: #831843; /* Darker pink */
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+        }
+        #message-box.show {
+            opacity: 1;
+        }
+        /* Responsive adjustments for container width */
+        @media (min-width: 640px) {
+            .container {
+                max-width: 640px; /* Max width for small screens (sm) */
+            }
+        }
+        @media (min-width: 768px) {
+            .container {
+                max-width: 768px; /* Max width for medium screens (md) */
+            }
+        }
+        @media (min-width: 1024px) {
+            .container {
+                max-width: 1024px; /* Max width for large screens (lg) */
+            }
+        }
+    </style>
+</head>
+<body class="bg-pink-50 min-h-screen flex flex-col items-center py-4">
+    <div id="app" class="container bg-white shadow-lg rounded-xl p-6 md:p-8">
+        <h1 class="text-3xl font-bold text-center text-pink-700 mb-2">מעקב חום גוף בסיסי (BBT)</h1>
+        <h2 class="text-xl font-semibold text-center text-pink-500 mb-8">אני אוהב אותך חוה ❤️</h2>
+
+        <!-- Navigation Tabs -->
+        <nav class="mb-6 flex flex-wrap justify-center gap-2">
+            <button id="nav-profile" class="nav-button bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                פרופיל אישי
+            </button>
+            <button id="nav-daily-entry" class="nav-button bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                הזנת נתונים יומית
+            </button>
+            <button id="nav-graph" class="nav-button bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                גרף חום
+            </button>
+            <button id="nav-calendar" class="nav-button bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                לוח שנה
+            </button>
+            <button id="nav-reports" class="nav-button bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out">
+                דוחות ניתוח
+            </button>
+        </nav>
+
+        <!-- Profile Section -->
+        <div id="profile-section" class="section">
+            <h2 class="text-2xl font-semibold text-pink-600 mb-4">פרופיל אישי</h2>
+            <form id="profile-form" class="space-y-4">
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700">שם משתמש:</label>
+                    <input type="text" id="username" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm" placeholder="הזן שם משתמש">
+                </div>
+                <div>
+                    <label for="dob" class="block text-sm font-medium text-gray-700">תאריך לידה:</label>
+                    <input type="date" id="dob" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="avgCycleLength" class="block text-sm font-medium text-gray-700">אורך מחזור ממוצע (ימים, אופציונלי):</label>
+                    <input type="number" id="avgCycleLength" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm" placeholder="לדוגמה: 28">
+                </div>
+                <div>
+                    <label for="lastPeriodStart" class="block text-sm font-medium text-gray-700">תאריך התחלת מחזור אחרון:</label>
+                    <input type="date" id="lastPeriodStart" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm">
+                </div>
+                <button type="submit" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-4 rounded-md shadow-sm transition duration-300 ease-in-out">
+                    שמור פרופיל
+                </button>
+            </form>
+        </div>
+
+        <!-- Daily Data Entry Section -->
+        <div id="daily-entry-section" class="section active">
+            <h2 class="text-2xl font-semibold text-pink-600 mb-4">הזנת נתונים יומית</h2>
+            <div id="daily-reminder" class="bg-pink-100 border-l-4 border-pink-500 text-pink-700 p-4 rounded-md mb-4" role="alert">
+                <p class="font-bold">תזכורת:</p>
+                <p>אנא הזני את נתוני חום הגוף היומי שלך. <br>
+                **כדי לערוך נתונים קיימים, פשוט בחר/י את התאריך הרצוי והשדות יתמלאו אוטומטית לעריכה.**</p>
+            </div>
+            <form id="daily-entry-form" class="space-y-4">
+                <div>
+                    <label for="entryDate" class="block text-sm font-medium text-gray-700">תאריך:</label>
+                    <input type="date" id="entryDate" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm" required>
+                </div>
+                <div>
+                    <label for="bbt" class="block text-sm font-medium text-gray-700">חום גוף (מעלות צלזיוס):</label>
+                    <input type="number" id="bbt" step="0.01" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm" placeholder="לדוגמה: 36.50">
+                </div>
+
+                <!-- Additional details section, initially hidden -->
+                <div id="additional-details" class="space-y-4 border-t border-gray-200 pt-4 mt-4 hidden">
+                    <h3 class="text-lg font-semibold text-pink-600">פרטים נוספים (אופציונלי):</h3>
+                    <div>
+                        <label for="discharge" class="block text-sm font-medium text-gray-700">הפרשות:</label>
+                        <select id="discharge" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm">
+                            <option value="">בחר סוג</option>
+                            <option value="dry">יבש</option>
+                            <option value="sticky">דביק</option>
+                            <option value="creamy">קרמי</option>
+                            <option value="eggwhite">חלבון ביצה</option>
+                            <option value="watery">מימי</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="pain" class="block text-sm font-medium text-gray-700">כאבים:</label>
+                        <select id="pain" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm">
+                            <option value="">בחר רמה</option>
+                            <option value="none">ללא</option>
+                            <option value="mild">קל</option>
+                            <option value="moderate">בינוני</option>
+                            <option value="severe">חמור</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="bleeding" class="block text-sm font-medium text-gray-700">דימום:</label>
+                        <select id="bleeding" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm">
+                            <option value="">בחר רמה</option>
+                            <option value="none">ללא</option>
+                            <option value="spotting">הכתמה</option>
+                            <option value="light">קל</option>
+                            <option value="medium">בינוני</option>
+                            <option value="heavy">כבד</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="emotionalState" class="block text-sm font-medium text-gray-700">מצב רגשי:</label>
+                        <select id="emotionalState" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm">
+                            <option value="">בחר מצב</option>
+                            <option value="happy">שמח</option>
+                            <option value="sad">עצוב</option>
+                            <option value="energetic">אנרגטי</option>
+                            <option value="tired">עייף</option>
+                            <option value="anxious">חרד</option>
+                            <option value="irritable">עצבני</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="notes" class="block text-sm font-medium text-gray-700">הערות חופשיות:</label>
+                        <textarea id="notes" rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm" placeholder="הזן הערות נוספות"></textarea>
+                    </div>
+                </div>
+
+                <button type="button" id="toggle-additional-details" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-md shadow-sm transition duration-300 ease-in-out">
+                    הוסף/ערוך פרטים נוספים
+                </button>
+
+                <button type="submit" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-4 rounded-md shadow-sm transition duration-300 ease-in-out">
+                    שמור נתונים
+                </button>
+            </form>
+        </div>
+
+        <!-- BBT Graph Section -->
+        <div id="graph-section" class="section">
+            <h2 class="text-2xl font-semibold text-pink-600 mb-4">גרף חום BBT</h2>
+            <div class="flex justify-center gap-2 mb-4">
+                <button id="graph-prev-month" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-3 rounded-md shadow-sm">
+                    חודש קודם
+                </button>
+                <span id="graph-current-month" class="text-lg font-medium text-gray-700"></span>
+                <button id="graph-next-month" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-3 rounded-md shadow-sm">
+                    חודש הבא
+                </button>
+            </div>
+            <div class="relative h-64 md:h-80">
+                <canvas id="bbtChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Calendar Section -->
+        <div id="calendar-section" class="section">
+            <h2 class="text-2xl font-semibold text-pink-600 mb-4">לוח שנה</h2>
+            <div class="flex justify-center gap-2 mb-4">
+                <button id="calendar-prev-month" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-3 rounded-md shadow-sm">
+                    חודש קודם
+                </button>
+                <span id="calendar-current-month" class="text-lg font-medium text-gray-700"></span>
+                <button id="calendar-next-month" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-1 px-3 rounded-md shadow-sm">
+                    חודש הבא
+                </button>
+            </div>
+            <div id="calendar-grid" class="grid grid-cols-7 gap-1 text-center text-sm">
+                <!-- Weekday headers (RTL order: Saturday to Sunday) -->
+                <div class="font-bold text-gray-600 py-2">שבת</div>
+                <div class="font-bold text-gray-600 py-2">שישי</div>
+                <div class="font-bold text-gray-600 py-2">חמישי</div>
+                <div class="font-bold text-gray-600 py-2">רביעי</div>
+                <div class="font-bold text-gray-600 py-2">שלישי</div>
+                <div class="font-bold text-gray-600 py-2">שני</div>
+                <div class="font-bold text-gray-600 py-2">ראשון</div>
+                <!-- Days will be dynamically inserted here by JavaScript -->
+            </div>
+            <div class="mt-6 p-4 bg-gray-50 rounded-lg shadow">
+                <h3 class="text-lg font-semibold text-gray-700 mb-2">מקרא:</h3>
+                <ul class="space-y-1 text-sm">
+                    <li class="flex items-center"><span class="w-4 h-4 rounded-full bg-red-500 ml-2"></span>וסת</li>
+                    <li class="flex items-center"><span class="w-4 h-4 rounded-full bg-blue-500 ml-2"></span>ביוץ צפוי/מאושר</li>
+                    <li class="flex items-center"><span class="w-4 h-4 rounded-full bg-green-500 ml-2"></span>פוריות גבוהה</li>
+                    <li class="flex items-center"><span class="w-4 h-4 rounded-full bg-purple-500 ml-2"></span>שלב לוטאלי</li>
+                    <li class="flex items-center"><span class="w-4 h-4 rounded-full bg-gray-300 ml-2"></span>נתונים הוזנו</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Reports Section -->
+        <div id="reports-section" class="section">
+            <h2 class="text-2xl font-semibold text-pink-600 mb-4">דוחות ניתוח</h2>
+            <div id="analysis-results" class="space-y-4 text-gray-700">
+                <p><strong>אורך מחזור ממוצע:</strong> <span id="avg-cycle-length-report">--</span> ימים</p>
+                <p><strong>אורך שלב לוטאלי ממוצע:</strong> <span id="avg-luteal-phase-report">--</span> ימים</p>
+                <p><strong>סדירות המחזור:</strong> <span id="cycle-regularity-report">--</span></p>
+                <p><strong>אישור ביוץ:</strong> <span id="ovulation-confirmation-report">--</span></p>
+                <button id="export-csv" class="mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md shadow-sm transition duration-300 ease-in-out">
+                    ייצוא ל-CSV
+                </button>
+            </div>
+            <div class="mt-8">
+                <h3 class="text-xl font-semibold text-pink-600 mb-4">גרף השוואתי בין מחזורים</h3>
+                <div class="relative h-64 md:h-80">
+                    <canvas id="comparativeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Message Box -->
+    <div id="message-box" class="rounded-lg"></div>
+
+    <script>
+        // Global object to store all application data (profile and daily entries)
+        let appData = {
+            profile: {
+                username: '',
+                dob: '',
+                avgCycleLength: null, // Average cycle length in days
+                lastPeriodStart: '' // Date string of the last period start
+            },
+            dailyEntries: [] // Array to store daily entries
+        };
+
+        // Chart.js instances for the BBT graph and comparative graph
+        let bbtChartInstance = null;
+        let comparativeChartInstance = null;
+
+        // Date objects to track the currently displayed month for the graph and calendar
+        let currentGraphMonth = new Date();
+        let currentCalendarMonth = new Date();
+
+        // --- DOM Element References ---
+        // General elements
+        const sections = document.querySelectorAll('.section');
+        const navButtons = document.querySelectorAll('.nav-button');
+        const messageBox = document.getElementById('message-box');
+
+        // Profile Section elements
+        const profileForm = document.getElementById('profile-form');
+        const usernameInput = document.getElementById('username');
+        const dobInput = document.getElementById('dob');
+        const avgCycleLengthInput = document.getElementById('avgCycleLength');
+        const lastPeriodStartInput = document.getElementById('lastPeriodStart');
+
+        // Daily Entry Section elements
+        const dailyEntryForm = document.getElementById('daily-entry-form');
+        const entryDateInput = document.getElementById('entryDate');
+        const bbtInput = document.getElementById('bbt');
+        const dischargeInput = document.getElementById('discharge');
+        const painInput = document.getElementById('pain');
+        const bleedingInput = document.getElementById('bleeding');
+        const emotionalStateInput = document.getElementById('emotionalState');
+        const notesInput = document.getElementById('notes');
+        const additionalDetailsSection = document.getElementById('additional-details');
+        const toggleAdditionalDetailsBtn = document.getElementById('toggle-additional-details');
+
+
+        // Graph Section elements
+        const bbtChartCanvas = document.getElementById('bbtChart');
+        const graphPrevMonthBtn = document.getElementById('graph-prev-month');
+        const graphNextMonthBtn = document.getElementById('graph-next-month');
+        const graphCurrentMonthSpan = document.getElementById('graph-current-month');
+
+        // Calendar Section elements
+        const calendarGrid = document.getElementById('calendar-grid');
+        const calendarPrevMonthBtn = document.getElementById('calendar-prev-month');
+        const calendarNextMonthBtn = document.getElementById('calendar-next-month');
+        const calendarCurrentMonthSpan = document.getElementById('calendar-current-month');
+
+        // Reports Section elements
+        const avgCycleLengthReport = document.getElementById('avg-cycle-length-report');
+        const avgLutealPhaseReport = document.getElementById('avg-luteal-phase-report');
+        const cycleRegularityReport = document.getElementById('cycle-regularity-report');
+        const ovulationConfirmationReport = document.getElementById('ovulation-confirmation-report');
+        const exportCsvBtn = document.getElementById('export-csv');
+        const comparativeChartCanvas = document.getElementById('comparativeChart');
+
+        // --- Utility Functions ---
+
+        /**
+         * Displays a custom message box with the given message.
+         * @param {string} message - The message to display.
+         * @param {string} type - The type of message (e.g., 'success', 'error', 'info'). Not fully utilized for styling here, but good practice.
+         */
+        function showMessage(message, type = 'info') {
+            messageBox.textContent = message;
+            messageBox.classList.add('show');
+            // Automatically hide the message after 3 seconds
+            setTimeout(() => {
+                messageBox.classList.remove('show');
+            }, 3000);
+        }
+
+        /**
+         * Loads application data from localStorage.
+         * Data is stored under the key 'bbtTrackerData'.
+         */
+        function loadData() {
+            try {
+                const storedData = localStorage.getItem('bbtTrackerData');
+                if (storedData) {
+                    appData = JSON.parse(storedData);
+                    // Ensure dailyEntries is an array and sorted by date for consistent processing
+                    if (!Array.isArray(appData.dailyEntries)) {
+                        appData.dailyEntries = [];
+                    }
+                    appData.dailyEntries.sort((a, b) => new Date(a.date) - new Date(b.date));
+                }
+            } catch (e) {
+                console.error("שגיאה בטעינת נתונים מ-localStorage:", e);
+                showMessage("שגיאה בטעינת נתונים.", "error");
+            }
+        }
+
+        /**
+         * Saves current application data to localStorage.
+         */
+        function saveData() {
+            try {
+                localStorage.setItem('bbtTrackerData', JSON.stringify(appData));
+            } catch (e) {
+                console.error("שגיאה בשמירת נתונים ל-localStorage:", e);
+                showMessage("שגיאה בשמירת נתונים.", "error");
+            }
+        }
+
+        /**
+         * Hides all sections and displays the specified section.
+         * Also updates the styling of navigation buttons.
+         * @param {string} sectionId - The ID of the section to display (e.g., 'profile-section').
+         */
+        function showSection(sectionId) {
+            // Hide all sections
+            sections.forEach(section => {
+                section.classList.remove('active');
+            });
+            // Show the target section
+            document.getElementById(sectionId).classList.add('active');
+
+            // Update navigation button styles (active vs. inactive)
+            navButtons.forEach(button => {
+                button.classList.remove('bg-pink-500', 'hover:bg-pink-600', 'text-white');
+                button.classList.add('bg-gray-200', 'hover:bg-gray-300', 'text-gray-800');
+            });
+            document.getElementById(`nav-${sectionId.replace('-section', '')}`).classList.remove('bg-gray-200', 'hover:bg-gray-300', 'text-gray-800');
+            document.getElementById(`nav-${sectionId.replace('-section', '')}`).classList.add('bg-pink-500', 'hover:bg-pink-600', 'text-white');
+
+            // Call specific rendering functions when a section becomes active
+            if (sectionId === 'profile-section') {
+                renderProfile();
+            } else if (sectionId === 'daily-entry-section') {
+                renderDailyEntry();
+            } else if (sectionId === 'graph-section') {
+                renderBBTGraph();
+            } else if (sectionId === 'calendar-section') {
+                renderCalendar();
+            } else if (sectionId === 'reports-section') {
+                renderReports();
+            }
+        }
+
+        /**
+         * Formats a Date object into a YYYY-MM-DD string.
+         * @param {Date} date - The Date object to format.
+         * @returns {string} The formatted date string.
+         */
+        function formatDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        /**
+         * Parses a YYYY-MM-DD date string into a Date object.
+         * @param {string} dateString - The date string to parse.
+         * @returns {Date} The parsed Date object.
+         */
+        function parseDate(dateString) {
+            const [year, month, day] = dateString.split('-').map(Number);
+            return new Date(year, month - 1, day); // Month is 0-indexed for Date constructor
+        }
+
+        /**
+         * Calculates the difference in days between two date strings.
+         * @param {string} date1Str - The first date string (YYYY-MM-DD).
+         * @param {string} date2Str - The second date string (YYYY-MM-DD).
+         * @returns {number} The absolute difference in days.
+         */
+        function getDaysBetween(date1Str, date2Str) {
+            const date1 = parseDate(date1Str);
+            const date2 = parseDate(date2Str);
+            const diffTime = Math.abs(date2.getTime() - date1.getTime());
+            return Math.ceil(diffTime / (1000 * 60 * 60 * 24)); // Convert milliseconds to days
+        }
+
+        // --- Profile Section Logic ---
+
+        /**
+         * Renders the profile form by populating it with existing data from appData.profile.
+         */
+        function renderProfile() {
+            usernameInput.value = appData.profile.username || '';
+            dobInput.value = appData.profile.dob || '';
+            avgCycleLengthInput.value = appData.profile.avgCycleLength || '';
+            lastPeriodStartInput.value = appData.profile.lastPeriodStart || '';
+        }
+
+        /**
+         * Handles the submission of the profile form.
+         * Updates appData.profile and saves it to localStorage.
+         * @param {Event} event - The form submission event.
+         */
+        function handleProfileSubmit(event) {
+            event.preventDefault(); // Prevent default form submission behavior
+
+            // Update profile data from form inputs
+            appData.profile.username = usernameInput.value.trim();
+            appData.profile.dob = dobInput.value;
+            // Convert avgCycleLength to number, or null if empty
+            appData.profile.avgCycleLength = avgCycleLengthInput.value ? parseInt(avgCycleLengthInput.value) : null;
+            appData.profile.lastPeriodStart = lastPeriodStartInput.value;
+
+            saveData(); // Save updated profile to localStorage
+            showMessage('הפרופיל נשמר בהצלחה!', 'success'); // Provide user feedback
+        }
+
+        // --- Daily Entry Section Logic ---
+
+        /**
+         * Resets the daily entry form fields to their default empty or current date values.
+         */
+        function resetDailyEntryForm() {
+            bbtInput.value = '';
+            dischargeInput.value = '';
+            painInput.value = '';
+            bleedingInput.value = '';
+            emotionalStateInput.value = '';
+            notesInput.value = '';
+            entryDateInput.value = formatDate(new Date()); // Always set to today's date
+            additionalDetailsSection.classList.add('hidden'); // Hide additional details
+            toggleAdditionalDetailsBtn.textContent = 'הוסף/ערוך פרטים נוספים'; // Reset button text
+        }
+
+        /**
+         * Renders the daily entry form.
+         * Pre-fills the date with today's date and existing data if an entry for that date exists.
+         */
+        function renderDailyEntry() {
+            resetDailyEntryForm(); // Clear the form first
+
+            const today = formatDate(new Date());
+            entryDateInput.value = today; // Set today's date as default
+
+            // Find if an entry for today already exists
+            const existingEntry = appData.dailyEntries.find(entry => entry.date === today);
+            if (existingEntry) {
+                // If exists, pre-fill all fields with existing data
+                bbtInput.value = existingEntry.bbt || '';
+                dischargeInput.value = existingEntry.discharge || '';
+                painInput.value = existingEntry.pain || '';
+                bleedingInput.value = existingEntry.bleeding || '';
+                emotionalStateInput.value = existingEntry.emotionalState || '';
+                notesInput.value = existingEntry.notes || '';
+                additionalDetailsSection.classList.remove('hidden'); // Show additional details if data exists
+                toggleAdditionalDetailsBtn.textContent = 'הסתר פרטים נוספים';
+            }
+        }
+
+        /**
+         * Handles the submission of the daily entry form.
+         * Adds a new entry or updates an existing one for the selected date.
+         * Saves updated data to localStorage.
+         * @param {Event} event - The form submission event.
+         */
+        function handleDailyEntrySubmit(event) {
+            event.preventDefault(); // Prevent default form submission
+
+            // Get values from form inputs
+            const date = entryDateInput.value;
+            const bbt = bbtInput.value ? parseFloat(bbtInput.value) : null; // Convert BBT to float
+            const discharge = dischargeInput.value;
+            const pain = painInput.value;
+            const bleeding = bleedingInput.value;
+            const emotionalState = emotionalStateInput.value;
+            const notes = notesInput.value.trim();
+
+            if (!date) {
+                showMessage('אנא בחר תאריך.', 'error'); // Basic validation
+                return;
+            }
+            if (bbt === null || isNaN(bbt)) {
+                showMessage('אנא הזן חום גוף תקין.', 'error');
+                return;
+            }
+
+            const newEntry = { date, bbt, discharge, pain, bleeding, emotionalState, notes };
+
+            // Check if an entry for this date already exists in the array
+            const existingIndex = appData.dailyEntries.findIndex(entry => entry.date === date);
+
+            if (existingIndex !== -1) {
+                // If exists, update the existing entry
+                appData.dailyEntries[existingIndex] = newEntry;
+                showMessage('הנתונים עודכנו בהצלחה!', 'success'); // User feedback for update
+            } else {
+                // If not, add the new entry to the array
+                appData.dailyEntries.push(newEntry);
+                showMessage('הנתונים נשמרו בהצלחה!', 'success'); // User feedback for new entry
+            }
+
+            // Sort entries by date to maintain chronological order
+            appData.dailyEntries.sort((a, b) => new Date(a.date) - new Date(b.date));
+            saveData(); // Save updated daily entries to localStorage
+
+            // Reset the form after submission
+            resetDailyEntryForm();
+
+            // Refresh other sections if they are currently active to show updated data
+            if (document.getElementById('graph-section').classList.contains('active')) renderBBTGraph();
+            if (document.getElementById('calendar-section').classList.contains('active')) renderCalendar();
+            if (document.getElementById('reports-section').classList.contains('active')) renderReports();
+        }
+
+        /**
+         * Toggles the visibility of the additional details section in the daily entry form.
+         */
+        function toggleAdditionalDetails() {
+            additionalDetailsSection.classList.toggle('hidden');
+            if (additionalDetailsSection.classList.contains('hidden')) {
+                toggleAdditionalDetailsBtn.textContent = 'הוסף/ערוך פרטים נוספים';
+            } else {
+                toggleAdditionalDetailsBtn.textContent = 'הסתר פרטים נוספים';
+            }
+        }
+
+        // --- BBT Graph Logic ---
+
+        /**
+         * Analyzes daily entries to detect ovulation and determine cycle phases.
+         * Uses a simplified "3 over 6" rule for ovulation detection:
+         * 3 consecutive days of temperatures higher than the previous 6, with the 3rd day at least 0.2°C higher than the average of the previous 6.
+         * @returns {Array<Object>} An array of daily entries with added cycle phase and ovulation flags.
+         */
+        function analyzeCycleData() {
+            // Create a sorted copy of daily entries to avoid modifying the original array
+            const sortedEntries = [...appData.dailyEntries].sort((a, b) => new Date(a.date) - new Date(b.date));
+            const analyzedData = [];
+            let currentCycleStart = null;
+            let ovulationDate = null; // Stores the date of detected ovulation for the current cycle
+            let coverlineTemp = null; // Stores the calculated coverline temperature
+
+            // Identify all period start dates from the entries
+            const periodStarts = sortedEntries
+                .filter(entry => entry.bleeding === 'light' || entry.bleeding === 'medium' || entry.bleeding === 'heavy')
+                .map(entry => entry.date);
+
+            // If a lastPeriodStart is set in the profile and it's not already in entries, add it
+            if (appData.profile.lastPeriodStart && !periodStarts.includes(appData.profile.lastPeriodStart)) {
+                periodStarts.push(appData.profile.lastPeriodStart);
+                periodStarts.sort(); // Re-sort to maintain chronological order
+            }
+
+            // Iterate through each entry to determine its cycle phase and detect ovulation
+            for (let i = 0; i < sortedEntries.length; i++) {
+                const entry = { ...sortedEntries[i] }; // Create a shallow copy of the entry
+                entry.cyclePhase = 'לא ידוע'; // Default phase
+                entry.isOvulation = false; // Flag for ovulation day
+                entry.isPeriod = false; // Flag for period day
+
+                // Mark if the day is a period day based on bleeding
+                if (entry.bleeding === 'light' || entry.bleeding === 'medium' || entry.bleeding === 'heavy') {
+                    entry.isPeriod = true;
+                }
+
+                // Determine the start of the current cycle for this entry
+                // Find the most recent period start that is on or before the current entry's date
+                const potentialCycleStart = periodStarts.find(ps => parseDate(ps) <= parseDate(entry.date));
+                if (potentialCycleStart && (!currentCycleStart || parseDate(potentialCycleStart) > parseDate(currentCycleStart))) {
+                    currentCycleStart = potentialCycleStart; // New cycle starts
+                    ovulationDate = null; // Reset ovulation for the new cycle
+                    coverlineTemp = null; // Reset coverline
+                }
+
+                if (currentCycleStart) {
+                    // Calculate days into the current cycle
+                    const daysIntoCycle = getDaysBetween(currentCycleStart, entry.date) + 1;
+                    entry.daysIntoCycle = daysIntoCycle;
+
+                    // Ovulation detection logic (simplified "3 over 6" rule)
+                    if (entry.bbt !== null && i >= 6 && !ovulationDate) { // Need at least 6 previous entries for calculation
+                        const prevSixTemps = sortedEntries.slice(i - 6, i).map(e => e.bbt).filter(t => t !== null);
+                        const currentThreeTemps = sortedEntries.slice(i, i + 3).map(e => e.bbt).filter(t => t !== null);
+
+                        if (prevSixTemps.length === 6 && currentThreeTemps.length === 3) {
+                            const avgPrevSix = prevSixTemps.reduce((sum, temp) => sum + temp, 0) / 6;
+                            const allThreeHigher = currentThreeTemps.every(temp => temp > avgPrevSix);
+                            const thirdDaySpike = currentThreeTemps[2] >= avgPrevSix + 0.2; // 0.2°C rise from coverline
+
+                            if (allThreeHigher && thirdDaySpike) {
+                                // Ovulation is typically considered the day before the first temperature rise.
+                                // For simplicity here, we mark the first day of the sustained rise.
+                                ovulationDate = entry.date;
+                                coverlineTemp = avgPrevSix;
+                            }
+                        }
+                    }
+
+                    // Assign cycle phase based on detected ovulation and period status
+                    if (entry.isPeriod) {
+                        entry.cyclePhase = 'וסת'; // Period phase
+                    } else if (ovulationDate && parseDate(entry.date) >= parseDate(ovulationDate)) {
+                        entry.cyclePhase = 'שלב לוטאלי'; // Luteal phase (after ovulation)
+                        entry.isOvulation = (entry.date === ovulationDate); // Mark the exact ovulation day
+                    } else {
+                        // For days before ovulation (follicular phase), roughly estimate high fertility
+                        // This is a very rough estimate; actual fertile window is more complex.
+                        if (daysIntoCycle >= 10 && daysIntoCycle <= 20 && !ovulationDate) {
+                             entry.cyclePhase = 'פוריות גבוהה';
+                        } else {
+                            entry.cyclePhase = 'שלב פוליקולרי'; // Follicular phase (before ovulation)
+                        }
+                    }
+                }
+                analyzedData.push(entry);
+            }
+            return analyzedData; // Return the enriched data
+        }
+
+
+        /**
+         * Renders the BBT graph for the current month using Chart.js.
+         * Displays BBT data, ovulation line, and coverline.
+         */
+        function renderBBTGraph() {
+            const analyzedData = analyzeCycleData(); // Get analyzed data with phases and ovulation flags
+            // Define the start and end dates of the current month
+            const startOfMonth = new Date(currentGraphMonth.getFullYear(), currentGraphMonth.getMonth(), 1);
+            const endOfMonth = new Date(currentGraphMonth.getFullYear(), currentGraphMonth.getMonth() + 1, 0);
+
+            // Filter entries to only include those within the current month
+            const filteredEntries = analyzedData.filter(entry => {
+                const entryDate = parseDate(entry.date);
+                return entryDate >= startOfMonth && entryDate <= endOfMonth;
+            });
+
+            // Initialize arrays for chart data
+            const labels = []; // Dates for X-axis
+            const bbtData = []; // BBT values
+            const ovulationLineData = []; // Data for ovulation line
+            const coverlineData = []; // Data for coverline
+            const backgroundColors = []; // Point background colors
+            const borderColors = []; // Point border colors
+            const pointStyles = []; // Point shapes (circle, triangle, rect)
+
+            let minTemp = 100; // Initialize with high value to find actual minimum
+            let maxTemp = 0;   // Initialize with low value to find actual maximum
+
+            // Populate labels and data for every day in the month, even if no entry exists
+            let currentDate = new Date(startOfMonth);
+            while (currentDate <= endOfMonth) {
+                const dateStr = formatDate(currentDate);
+                labels.push(dateStr); // Add date to labels
+
+                const entry = filteredEntries.find(e => e.date === dateStr);
+                if (entry) {
+                    bbtData.push(entry.bbt); // Add BBT value
+                    if (entry.bbt !== null) {
+                        minTemp = Math.min(minTemp, entry.bbt); // Update min temp
+                        maxTemp = Math.max(maxTemp, entry.bbt); // Update max temp
+                    }
+
+                    // Assign point style and color based on cycle phase
+                    if (entry.isOvulation) {
+                        pointStyles.push('triangle'); // Triangle for ovulation
+                        borderColors.push('rgba(0, 0, 255, 1)'); // Blue border
+                        backgroundColors.push('rgba(0, 0, 255, 0.6)'); // Blue background
+                    } else if (entry.isPeriod) {
+                        pointStyles.push('rect'); // Square for period
+                        borderColors.push('rgba(255, 0, 0, 1)'); // Red border
+                        backgroundColors.push('rgba(255, 0, 0, 0.6)'); // Red background
+                    } else {
+                        pointStyles.push('circle'); // Default circle
+                        borderColors.push('rgba(255, 105, 180, 1)'); // Hot pink border
+                        backgroundColors.push('rgba(255, 105, 180, 0.6)'); // Hot pink background
+                    }
+                } else {
+                    bbtData.push(null); // No data for this day
+                    pointStyles.push('circle'); // Default style
+                    borderColors.push('rgba(255, 105, 180, 1)');
+                    backgroundColors.push('rgba(255, 105, 180, 0.6)');
+                }
+
+                // Add data for ovulation line and coverline
+                const ovulationEntry = analyzedData.find(e => e.date === dateStr && e.isOvulation);
+                if (ovulationEntry) {
+                    ovulationLineData.push(ovulationEntry.bbt); // Mark ovulation on the graph
+                } else {
+                    ovulationLineData.push(null);
+                }
+
+                // Calculate and add coverline data for the current cycle
+                const cycleOvulation = analyzedData.find(e => e.isOvulation && parseDate(e.date) <= currentDate);
+                if (cycleOvulation) {
+                    const ovulationIndex = analyzedData.findIndex(e => e.date === cycleOvulation.date);
+                    if (ovulationIndex !== -1 && ovulationIndex >= 6) {
+                        const prevSixTemps = analyzedData.slice(ovulationIndex - 6, ovulationIndex).map(e => e.bbt).filter(t => t !== null);
+                        if (prevSixTemps.length === 6) {
+                            const avgPrevSix = prevSixTemps.reduce((sum, temp) => sum + temp, 0) / 6;
+                            coverlineData.push(avgPrevSix);
+                        } else {
+                            coverlineData.push(null);
+                        }
+                    } else {
+                        coverlineData.push(null);
+                    }
+                } else {
+                    coverlineData.push(null);
+                }
+
+                currentDate.setDate(currentDate.getDate() + 1); // Move to the next day
+            }
+
+            // Adjust Y-axis scale based on min/max temperatures, with some padding
+            minTemp = Math.floor(minTemp - 0.5);
+            maxTemp = Math.ceil(maxTemp + 0.5);
+            if (minTemp >= maxTemp) { // Fallback for minimal data
+                minTemp = 36.0;
+                maxTemp = 37.5;
+            }
+
+            // Destroy previous chart instance if it exists to prevent memory leaks and redraw issues
+            if (bbtChartInstance) {
+                bbtChartInstance.destroy();
+            }
+
+            // Create new Chart.js instance
+            bbtChartInstance = new Chart(bbtChartCanvas, {
+                type: 'line', // Line chart type
+                data: {
+                    labels: labels, // X-axis labels (dates)
+                    datasets: [
+                        {
+                            label: 'חום גוף בסיסי (BBT)',
+                            data: bbtData,
+                            borderColor: 'rgba(255, 105, 180, 1)', // Hot pink line
+                            backgroundColor: 'rgba(255, 105, 180, 0.2)', // Light hot pink fill
+                            borderWidth: 2,
+                            pointRadius: 5,
+                            pointBackgroundColor: backgroundColors,
+                            pointBorderColor: borderColors,
+                            pointStyle: pointStyles,
+                            fill: false, // No area fill under the line
+                            tension: 0.1, // Slight curve in the line
+                            spanGaps: true // Connect points across null values
+                        },
+                        {
+                            label: 'קו ביוץ',
+                            data: ovulationLineData,
+                            borderColor: 'rgba(0, 0, 255, 0.8)', // Blue dashed line
+                            borderDash: [5, 5], // Dashed line pattern
+                            borderWidth: 1,
+                            pointRadius: 0, // No points on this line
+                            fill: false,
+                            tension: 0.1,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'קו כיסוי',
+                            data: coverlineData,
+                            borderColor: 'rgba(255, 165, 0, 0.8)', // Orange dotted line
+                            borderDash: [3, 3], // Dotted line pattern
+                            borderWidth: 1,
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0.1,
+                            spanGaps: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, // Chart resizes with its container
+                    maintainAspectRatio: false, // Do not maintain aspect ratio (allows flexible height)
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true, // Use point style in legend
+                                // Custom label generation to include cycle phases in the legend
+                                generateLabels: function(chart) {
+                                    const labels = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                                    labels.push({ text: 'וסת', fillStyle: 'rgba(255, 0, 0, 0.6)', pointStyle: 'rect' });
+                                    labels.push({ text: 'ביוץ', fillStyle: 'rgba(0, 0, 255, 0.6)', pointStyle: 'triangle' });
+                                    labels.push({ text: 'שלב פוליקולרי/לוטאלי', fillStyle: 'rgba(255, 105, 180, 0.6)', pointStyle: 'circle' });
+                                    return labels;
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'גרף חום גוף בסיסי (BBT) יומי'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                // Custom label for tooltip to show BBT value
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y.toFixed(2) + '°C';
+                                    }
+                                    return label;
+                                },
+                                // Custom title for tooltip to show detailed daily info
+                                title: function(context) {
+                                    const dateStr = context[0].label;
+                                    const entry = analyzedData.find(e => e.date === dateStr);
+                                    if (entry) {
+                                        let title = `${dateStr}`;
+                                        if (entry.cyclePhase !== 'לא ידוע') title += ` (שלב: ${entry.cyclePhase})`;
+                                        if (entry.daysIntoCycle) title += ` (יום במחזור: ${entry.daysIntoCycle})`;
+                                        if (entry.discharge) title += `\nהפרשות: ${entry.discharge}`;
+                                        if (entry.pain) title += `\nכאבים: ${entry.pain}`;
+                                        if (entry.bleeding) title += `\nדימום: ${entry.bleeding}`;
+                                        if (entry.emotionalState) title += `\nמצב רגשי: ${entry.emotionalState}`;
+                                        if (entry.notes) title += `\nהערות: ${entry.notes}`;
+                                        return title;
+                                    }
+                                    return dateStr;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'category', // Categorical scale for dates
+                            title: {
+                                display: true,
+                                text: 'תאריך'
+                            },
+                            ticks: {
+                                // Display only the day of the month for cleaner X-axis
+                                callback: function(val, index) {
+                                    return labels[index].split('-')[2];
+                                }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'חום גוף (°C)'
+                            },
+                            min: minTemp, // Set calculated min temp
+                            max: maxTemp, // Set calculated max temp
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(2) + '°C'; // Format Y-axis ticks
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Update the displayed month name in the graph section
+            graphCurrentMonthSpan.textContent = currentGraphMonth.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
+        }
+
+        /**
+         * Changes the month displayed in the BBT graph.
+         * @param {number} offset - The number of months to move (e.g., -1 for previous, 1 for next).
+         */
+        function changeGraphMonth(offset) {
+            currentGraphMonth.setMonth(currentGraphMonth.getMonth() + offset); // Adjust month
+            renderBBTGraph(); // Re-render the graph
+        }
+
+        // --- Calendar Section Logic ---
+
+        /**
+         * Renders the calendar grid for the current month.
+         * Displays daily entries and predicts cycle phases.
+         */
+        function renderCalendar() {
+            const analyzedData = analyzeCycleData(); // Get analyzed data for calendar display
+            // Clear previous calendar days and re-add weekday headers
+            calendarGrid.innerHTML = `
+                <div class="font-bold text-gray-600 py-2">שבת</div>
+                <div class="font-bold text-gray-600 py-2">שישי</div>
+                <div class="font-bold text-gray-600 py-2">חמישי</div>
+                <div class="font-bold text-gray-600 py-2">רביעי</div>
+                <div class="font-bold text-gray-600 py-2">שלישי</div>
+                <div class="font-bold text-gray-600 py-2">שני</div>
+                <div class="font-bold text-gray-600 py-2">ראשון</div>
+            `;
+
+            const year = currentCalendarMonth.getFullYear();
+            const month = currentCalendarMonth.getMonth(); // 0-indexed month
+
+            const firstDayOfMonth = new Date(year, month, 1);
+            const lastDayOfMonth = new Date(year, month + 1, 0);
+            const numDaysInMonth = lastDayOfMonth.getDate();
+
+            // Calculate the offset for the first day of the month in the grid (for RTL calendar)
+            // Sunday is 0, Monday is 1, ..., Saturday is 6.
+            // In RTL, Saturday is the first column. So, if firstDayOfMonth is Sunday (0), it needs 6 empty cells before it.
+            // If it's Saturday (6), it needs 0 empty cells.
+            const firstDayOfWeek = firstDayOfMonth.getDay();
+            const offset = (7 - firstDayOfWeek) % 7; // Number of empty cells at the start for RTL display
+
+            // Add empty cells before the first day of the month
+            for (let i = 0; i < offset; i++) {
+                const emptyDiv = document.createElement('div');
+                emptyDiv.classList.add('p-2', 'border', 'border-gray-200', 'rounded-md', 'bg-gray-50');
+                calendarGrid.appendChild(emptyDiv);
+            }
+
+            // Populate the calendar with days of the month
+            for (let day = 1; day <= numDaysInMonth; day++) {
+                const date = new Date(year, month, day);
+                const dateStr = formatDate(date);
+                const entry = analyzedData.find(e => e.date === dateStr); // Find entry for this day
+
+                const dayDiv = document.createElement('div');
+                dayDiv.classList.add('p-2', 'border', 'border-gray-200', 'rounded-md', 'flex', 'flex-col', 'items-end', 'justify-between', 'h-24', 'relative', 'overflow-hidden');
+                dayDiv.innerHTML = `<span class="text-lg font-semibold">${day}</span>`; // Display day number
+
+                let bgColorClass = 'bg-white'; // Default background color
+                let textColorClass = 'text-gray-800'; // Default text color
+                let tooltipContent = `תאריך: ${dateStr}`; // Tooltip for detailed info
+
+                if (entry) {
+                    // If an entry exists for this day, set default background and add details to tooltip
+                    bgColorClass = 'bg-gray-200'; // Default for entered data
+                    tooltipContent += `\nחום: ${entry.bbt !== null ? entry.bbt : 'אין'}`;
+                    if (entry.discharge) tooltipContent += `\nהפרשות: ${entry.discharge}`;
+                    if (entry.pain) tooltipContent += `\nכאבים: ${entry.pain}`;
+                    if (entry.bleeding) tooltipContent += `\nדימום: ${entry.bleeding}`;
+                    if (entry.emotionalState) tooltipContent += `\nמצב רגשי: ${entry.emotionalState}`;
+                    if (entry.notes) tooltipContent += `\nהערות: ${entry.notes}`;
+
+                    // Apply specific colors and text based on cycle phase
+                    if (entry.isPeriod) {
+                        bgColorClass = 'bg-red-200'; // Red for period
+                        textColorClass = 'text-red-800';
+                        dayDiv.innerHTML += `<span class="text-xs text-red-600 font-medium mt-1">וסת</span>`;
+                    } else if (entry.isOvulation) {
+                        bgColorClass = 'bg-blue-200'; // Blue for confirmed ovulation
+                        textColorClass = 'text-blue-800';
+                        dayDiv.innerHTML += `<span class="text-xs text-blue-600 font-medium mt-1">ביוץ!</span>`;
+                    } else if (entry.cyclePhase === 'פוריות גבוהה') {
+                        bgColorClass = 'bg-green-200'; // Green for high fertility
+                        textColorClass = 'text-green-800';
+                        dayDiv.innerHTML += `<span class="text-xs text-green-600 font-medium mt-1">פוריות גבוהה</span>`;
+                    } else if (entry.cyclePhase === 'שלב לוטאלי') {
+                        bgColorClass = 'bg-purple-200'; // Purple for luteal phase
+                        textColorClass = 'text-purple-800';
+                        dayDiv.innerHTML += `<span class="text-xs text-purple-600 font-medium mt-1">שלב לוטאלי</span>`;
+                    }
+                } else {
+                    // Predict future events if profile data (last period start and avg cycle length) is available
+                    if (appData.profile.lastPeriodStart && appData.profile.avgCycleLength) {
+                        const lastPeriodDate = parseDate(appData.profile.lastPeriodStart);
+                        const daysSinceLastPeriod = getDaysBetween(appData.profile.lastPeriodStart, dateStr);
+
+                        // Basic prediction for next period
+                        // This is a simplified prediction based only on avgCycleLength from profile.
+                        // A more robust prediction would use historical cycle lengths.
+                        const predictedPeriodDate = new Date(lastPeriodDate);
+                        predictedPeriodDate.setDate(predictedPeriodDate.getDate() + appData.profile.avgCycleLength);
+                        if (formatDate(predictedPeriodDate) === dateStr) {
+                            bgColorClass = 'bg-red-100'; // Lighter red for predicted period
+                            textColorClass = 'text-red-700';
+                            dayDiv.innerHTML += `<span class="text-xs text-red-500 font-medium mt-1">וסת צפויה</span>`;
+                        }
+
+                        // Basic prediction for ovulation (assuming ovulation around day 14 of avg cycle)
+                        const predictedOvulationDay = 14; // Common average day for ovulation
+                        const predictedOvulationDate = new Date(lastPeriodDate);
+                        // Subtract 1 because 'day 14' is 13 days after day 1.
+                        predictedOvulationDate.setDate(predictedOvulationDate.getDate() + predictedOvulationDay - 1);
+                        if (formatDate(predictedOvulationDate) === dateStr) {
+                            bgColorClass = 'bg-blue-100'; // Lighter blue for predicted ovulation
+                            textColorClass = 'text-blue-700';
+                            dayDiv.innerHTML += `<span class="text-xs text-blue-500 font-medium mt-1">ביוץ צפוי</span>`;
+                        }
+                    }
+                }
+
+                dayDiv.classList.add(bgColorClass, textColorClass); // Apply calculated classes
+                dayDiv.setAttribute('title', tooltipContent); // Add tooltip for detailed info on hover/tap
+                calendarGrid.appendChild(dayDiv); // Add the day div to the calendar grid
+            }
+
+            // Update the displayed month name in the calendar section
+            calendarCurrentMonthSpan.textContent = currentCalendarMonth.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
+        }
+
+        /**
+         * Changes the month displayed in the calendar.
+         * @param {number} offset - The number of months to move (e.g., -1 for previous, 1 for next).
+         */
+        function changeCalendarMonth(offset) {
+            currentCalendarMonth.setMonth(currentCalendarMonth.getMonth() + offset); // Adjust month
+            renderCalendar(); // Re-render the calendar
+        }
+
+        // --- Reports Section Logic ---
+
+        /**
+         * Calculates and displays various analysis reports, including average cycle length,
+         * luteal phase length, cycle regularity, and ovulation confirmation.
+         * Also renders a comparative chart of BBT across different cycles.
+         */
+        function renderReports() {
+            const analyzedData = analyzeCycleData(); // Get analyzed data for reports
+
+            // --- Calculate Average Cycle Length ---
+            let cycleLengths = [];
+            let lastPeriodStartDate = null;
+            // Iterate through analyzed data to find period starts and calculate cycle lengths
+            for (const entry of analyzedData) {
+                if (entry.isPeriod) {
+                    if (lastPeriodStartDate) {
+                        const length = getDaysBetween(lastPeriodStartDate, entry.date);
+                        if (length > 0) { // Ensure a positive cycle length
+                            cycleLengths.push(length);
+                        }
+                    }
+                    lastPeriodStartDate = entry.date; // Set current period start for next calculation
+                }
+            }
+            // Calculate average cycle length, or display '--' if no data
+            const avgCycle = cycleLengths.length > 0 ? (cycleLengths.reduce((sum, len) => sum + len, 0) / cycleLengths.length).toFixed(1) : '--';
+            avgCycleLengthReport.textContent = avgCycle;
+
+            // --- Calculate Average Luteal Phase Length ---
+            let lutealPhaseLengths = [];
+            let currentOvulationDate = null;
+            // Iterate to find ovulation and subsequent period to calculate luteal phase
+            for (let i = 0; i < analyzedData.length; i++) {
+                const entry = analyzedData[i];
+                if (entry.isOvulation) {
+                    currentOvulationDate = entry.date; // Mark ovulation date
+                }
+                if (entry.isPeriod && currentOvulationDate) {
+                    const lutealLength = getDaysBetween(currentOvulationDate, entry.date);
+                    if (lutealLength > 0) {
+                        lutealPhaseLengths.push(lutealLength);
+                    }
+                    currentOvulationDate = null; // Reset for the next cycle
+                }
+            }
+            // Calculate average luteal phase length, or display '--'
+            const avgLuteal = lutealPhaseLengths.length > 0 ? (lutealPhaseLengths.reduce((sum, len) => sum + len, 0) / lutealPhaseLengths.length).toFixed(1) : '--';
+            avgLutealPhaseReport.textContent = avgLuteal;
+
+            // --- Determine Cycle Regularity ---
+            // A simple check: if at least 2 cycles recorded and the difference between max and min length is <= 5 days
+            cycleRegularityReport.textContent = cycleLengths.length >= 2 && Math.max(...cycleLengths) - Math.min(...cycleLengths) <= 5 ? 'סדיר' : 'לא סדיר/אין מספיק נתונים';
+
+            // --- Confirm Ovulation ---
+            // Check if any ovulation has been detected in the analyzed data
+            ovulationConfirmationReport.textContent = analyzedData.some(entry => entry.isOvulation) ? 'ביוץ זוהה במחזורים קודמים' : 'טרם זוהה ביוץ';
+
+            // --- Render Comparative Chart ---
+            renderComparativeChart(analyzedData);
+        }
+
+        /**
+         * Renders a comparative chart showing BBT trends across different menstrual cycles.
+         * Each cycle is plotted as a separate line, aligned by "days into cycle".
+         * @param {Array<Object>} analyzedData - The analyzed daily entries, including cycle phase and ovulation flags.
+         */
+        function renderComparativeChart(analyzedData) {
+            // Destroy previous chart instance if it exists
+            if (comparativeChartInstance) {
+                comparativeChartInstance.destroy();
+            }
+
+            const cycles = {}; // Object to group entries by cycle start date
+            let currentCycleStartDate = null;
+
+            // Find all period start dates to delineate cycles
+            const periodStarts = analyzedData
+                .filter(entry => entry.bleeding === 'light' || entry.bleeding === 'medium' || entry.bleeding === 'heavy')
+                .map(entry => entry.date);
+
+            // Add the lastPeriodStart from profile if it's not already in the entries and is the earliest
+            if (appData.profile.lastPeriodStart && !periodStarts.includes(appData.profile.lastPeriodStart)) {
+                periodStarts.push(appData.profile.lastPeriodStart);
+                periodStarts.sort(); // Ensure sorted order
+            }
+
+            // Group daily entries into their respective cycles
+            for (let i = 0; i < analyzedData.length; i++) {
+                const entry = analyzedData[i];
+                const entryDate = parseDate(entry.date);
+
+                // Find the most recent period start that is on or before the current entry's date
+                const cycleStartForEntry = periodStarts.slice().reverse().find(ps => parseDate(ps) <= entryDate);
+
+                if (cycleStartForEntry) {
+                    if (!cycles[cycleStartForEntry]) {
+                        cycles[cycleStartForEntry] = []; // Initialize array for new cycle
+                    }
+                    cycles[cycleStartForEntry].push(entry); // Add entry to its cycle
+                }
+            }
+
+            const datasets = []; // Array to hold Chart.js datasets (one per cycle)
+            let maxCycleDay = 0; // Track the maximum number of days in any cycle for X-axis labels
+
+            // Predefined colors for different cycle lines (pink-themed)
+            const colors = [
+                'rgba(219, 39, 119, 1)', // Pink-700
+                'rgba(236, 72, 153, 1)', // Pink-600
+                'rgba(244, 114, 182, 1)', // Pink-500
+                'rgba(251, 146, 200, 1)', // Pink-400
+                'rgba(253, 164, 217, 1)', // Pink-300
+                'rgba(254, 205, 230, 1)'  // Pink-200
+            ];
+            let colorIndex = 0; // Index to cycle through colors
+
+            // Iterate through each grouped cycle
+            for (const cycleStartDate in cycles) {
+                const cycleEntries = cycles[cycleStartDate].sort((a, b) => new Date(a.date) - new Date(b.date));
+                const bbtValues = []; // BBT values for this specific cycle
+                const cycleDayLabels = []; // Labels like "Day 1", "Day 2" for this cycle
+
+                for (const entry of cycleEntries) {
+                    const daysIntoCycle = getDaysBetween(cycleStartDate, entry.date) + 1; // Calculate day number in cycle
+                    bbtValues[daysIntoCycle - 1] = entry.bbt; // Store BBT at the correct index (Day 1 is index 0)
+                    cycleDayLabels[daysIntoCycle - 1] = `יום ${daysIntoCycle}`;
+                    maxCycleDay = Math.max(maxCycleDay, daysIntoCycle); // Update overall max cycle day
+                }
+
+                // Fill any gaps in BBT values with null for consistent line drawing
+                for (let i = 0; i < maxCycleDay; i++) {
+                    if (bbtValues[i] === undefined) {
+                        bbtValues[i] = null;
+                    }
+                    if (cycleDayLabels[i] === undefined) {
+                        cycleDayLabels[i] = `יום ${i + 1}`;
+                    }
+                }
+
+                // Add a dataset for the current cycle
+                datasets.push({
+                    label: `מחזור החל ב-${cycleStartDate}`, // Label for the legend
+                    data: bbtValues,
+                    borderColor: colors[colorIndex % colors.length], // Assign a color
+                    backgroundColor: colors[colorIndex % colors.length].replace('1)', '0.2)'), // Lighter background for points
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    fill: false,
+                    tension: 0.1,
+                    spanGaps: true // Connect points across null values
+                });
+                colorIndex++; // Move to the next color
+            }
+
+            // Create labels for the X-axis (e.g., "Day 1", "Day 2", ...) up to the maximum cycle day found
+            const xAxisLabels = Array.from({ length: maxCycleDay }, (_, i) => `יום ${i + 1}`);
+
+            // Create the comparative Chart.js instance
+            comparativeChartInstance = new Chart(comparativeChartCanvas, {
+                type: 'line',
+                data: {
+                    labels: xAxisLabels, // X-axis labels
+                    datasets: datasets // All cycle datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'גרף השוואתי של חום גוף במחזורים שונים'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y.toFixed(2) + '°C';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'category',
+                            title: {
+                                display: true,
+                                text: 'יום במחזור'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'חום גוף (°C)'
+                            },
+                            min: 36.0, // Fixed Y-axis scale for better visual comparison across cycles
+                            max: 37.5,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(2) + '°C';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        /**
+         * Exports all daily entry data to a CSV (Comma Separated Values) file.
+         * Includes a Byte Order Mark (BOM) for proper display of Hebrew characters in Excel.
+         */
+        function exportToCsv() {
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // BOM for Hebrew support
+            // Define CSV headers
+            const headers = ["תאריך", "חום גוף (°C)", "הפרשות", "כאבים", "דימום", "מצב רגשי", "הערות"];
+            csvContent += headers.join(",") + "\n"; // Add headers to CSV content
+
+            // Iterate through each daily entry and format it as a CSV row
+            appData.dailyEntries.forEach(entry => {
+                const row = [
+                    entry.date,
+                    entry.bbt !== null ? entry.bbt.toFixed(2) : '', // Format BBT to 2 decimal places
+                    entry.discharge,
+                    entry.pain,
+                    entry.bleeding,
+                    entry.emotionalState,
+                    `"${entry.notes.replace(/"/g, '""')}"` // Handle commas and double quotes in notes field
+                ];
+                csvContent += row.join(",") + "\n"; // Join row elements with comma and add newline
+            });
+
+            const encodedUri = encodeURI(csvContent); // Encode the URI for download
+            const link = document.createElement("a"); // Create a temporary anchor element
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "bbt_data.csv"); // Set the download filename
+            document.body.appendChild(link); // Append to body (required for Firefox)
+            link.click(); // Programmatically click the link to trigger download
+            document.body.removeChild(link); // Remove the temporary link
+            showMessage('הנתונים יוצאו בהצלחה לקובץ CSV!', 'success'); // User feedback
+        }
+
+        // --- Event Listeners ---
+
+        // Add click event listeners to all navigation buttons
+        navButtons.forEach(button => {
+            button.addEventListener('click', (event) => {
+                // Extract section ID from button ID (e.g., 'nav-profile' -> 'profile-section')
+                const sectionId = event.target.id.replace('nav-', '') + '-section';
+                showSection(sectionId); // Show the corresponding section
+            });
+        });
+
+        // Add submit event listener for the profile form
+        profileForm.addEventListener('submit', handleProfileSubmit);
+
+        // Add submit event listener for the daily entry form
+        dailyEntryForm.addEventListener('submit', handleDailyEntrySubmit);
+
+        // Add change event listener to the date input to load existing data for that date
+        entryDateInput.addEventListener('change', () => {
+            const selectedDate = entryDateInput.value;
+            const existingEntry = appData.dailyEntries.find(entry => entry.date === selectedDate);
+
+            if (existingEntry) {
+                bbtInput.value = existingEntry.bbt || '';
+                dischargeInput.value = existingEntry.discharge || '';
+                painInput.value = existingEntry.pain || '';
+                bleedingInput.value = existingEntry.bleeding || '';
+                emotionalStateInput.value = existingEntry.emotionalState || '';
+                notesInput.value = existingEntry.notes || '';
+                additionalDetailsSection.classList.remove('hidden'); // Show additional details if data exists
+                toggleAdditionalDetailsBtn.textContent = 'הסתר פרטים נוספים';
+            } else {
+                // If no entry for the selected date, clear all fields except date
+                bbtInput.value = '';
+                dischargeInput.value = '';
+                painInput.value = '';
+                bleedingInput.value = '';
+                emotionalStateInput.value = '';
+                notesInput.value = '';
+                additionalDetailsSection.classList.add('hidden'); // Hide additional details
+                toggleAdditionalDetailsBtn.textContent = 'הוסף/ערוך פרטים נוספים';
+            }
+        });
+
+
+        // Add click event listener for the toggle additional details button
+        toggleAdditionalDetailsBtn.addEventListener('click', toggleAdditionalDetails);
+
+        // Add click event listeners for graph navigation buttons
+        graphPrevMonthBtn.addEventListener('click', () => changeGraphMonth(-1));
+        graphNextMonthBtn.addEventListener('click', () => changeGraphMonth(1));
+
+        // Add click event listeners for calendar navigation buttons
+        calendarPrevMonthBtn.addEventListener('click', () => changeCalendarMonth(-1));
+        calendarNextMonthBtn.addEventListener('click', () => changeCalendarMonth(1));
+
+        // Add click event listener for the CSV export button
+        exportCsvBtn.addEventListener('click', exportToCsv);
+
+        // --- Initial Application Load ---
+        // This function runs when the DOM is fully loaded.
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData(); // Load any existing data from localStorage
+            showSection('daily-entry-section'); // Display the daily entry section by default
+        });
+    </script>
+</body>
+</html>
+
