@@ -490,6 +490,7 @@
 
             saveData(); // Save updated profile to localStorage
             showMessage('הפרופיל נשמר בהצלחה!', 'success'); // Provide user feedback
+            renderCalendar(); // Re-render calendar to reflect updated lastPeriodStart
         }
 
         // --- Daily Entry Section Logic ---
@@ -998,6 +999,9 @@
                 let textColorClass = 'text-gray-800'; // Default text color
                 let tooltipContent = `תאריך: ${dateStr}`; // Tooltip for detailed info
 
+                // Check if this specific date is the profile's last period start
+                const isProfilePeriodStartDate = appData.profile.lastPeriodStart === dateStr;
+
                 if (entry) {
                     // If an entry exists for this day, set default background and add details to tooltip
                     bgColorClass = 'bg-gray-200'; // Default for entered data
@@ -1008,8 +1012,8 @@
                     if (entry.emotionalState) tooltipContent += `\nמצב רגשי: ${entry.emotionalState}`;
                     if (entry.notes) tooltipContent += `\nהערות: ${entry.notes}`;
 
-                    // Apply specific colors and text based on cycle phase
-                    if (entry.isPeriod) {
+                    // Apply specific colors and text based on cycle phase or if it's a period start from profile
+                    if (entry.isPeriod || isProfilePeriodStartDate) { // Prioritize period marking
                         bgColorClass = 'bg-red-200'; // Red for period
                         textColorClass = 'text-red-800';
                         dayDiv.innerHTML += `<span class="text-xs text-red-600 font-medium mt-1">וסת</span>`;
@@ -1027,8 +1031,12 @@
                         dayDiv.innerHTML += `<span class="text-xs text-purple-600 font-medium mt-1">שלב לוטאלי</span>`;
                     }
                 } else {
-                    // Predict future events if profile data (last period start and avg cycle length) is available
-                    if (appData.profile.lastPeriodStart && appData.profile.avgCycleLength) {
+                    // If no daily entry for this date, check for profile period start or predictions
+                    if (isProfilePeriodStartDate) {
+                        bgColorClass = 'bg-red-200'; // Mark as period from profile
+                        textColorClass = 'text-red-800';
+                        dayDiv.innerHTML += `<span class="text-xs text-red-600 font-medium mt-1">וסת</span>`;
+                    } else if (appData.profile.lastPeriodStart && appData.profile.avgCycleLength) {
                         const lastPeriodDate = parseDate(appData.profile.lastPeriodStart);
                         const daysSinceLastPeriod = getDaysBetween(appData.profile.lastPeriodStart, dateStr);
 
@@ -1271,6 +1279,12 @@
                             title: {
                                 display: true,
                                 text: 'יום במחזור'
+                            },
+                            ticks: {
+                                // Display only the day of the month for cleaner X-axis
+                                callback: function(val, index) {
+                                    return xAxisLabels[index].split(' ')[1]; // Extract day number
+                                }
                             }
                         },
                         y: {
